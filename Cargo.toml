@@ -9,5 +9,5 @@ edition = "2021"
 openapi = "0.1.5"
 poem = "1.3.57"
 poem-openapi = { version = "3.0.0", features = ["swagger-ui", "openapi-explorer"] }
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-rustls"] }
+sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-rustls", "time"] }
 tokio = { version = "1.29.1", features = ["full"] }

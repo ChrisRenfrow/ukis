@@ -1,7 +1,6 @@
-use openapi::Result;
-use poem::web::Data;
-use poem_openapi::{payload::Json, Object, OpenApi};
-use sqlx::PgPool;
+use poem::{listener::TcpListener, web::Data, EndpointExt, Result, Route, Server};
+use poem_openapi::{payload::Json, types::ToJSON, Object, OpenApi, OpenApiService};
+use sqlx::{types::time::Time, PgPool};
 
 #[derive(Object)]
 struct Product {
@@ -12,6 +11,7 @@ struct Product {
     purchase_unit_id: i64,
     stock_unit_id: i64,
     purchase_to_stock_factor: f32,
+    created_timestamp: Time,
 }
 
 type GetAllProductsResponse = Result<Json<Vec<Product>>>;
@@ -53,17 +53,40 @@ struct UnitConversion {
 
 type GetAllUnitConversionsResponse = Result<Json<Vec<UnitConversion>>>;
 
+impl ToJSON for Time {
+    fn to_json(&self) -> Option<String> {
+        // self.format().unwrap()
+        todo!()
+    }
+}
+
 struct UkisApi;
 
 #[OpenApi]
 impl UkisApi {
     #[oai(path = "/products", method = "get")]
     async fn get_products(&self, pool: Data<&PgPool>) -> GetAllProductsResponse {
-        todo!()
+        let products = sqlx::query_as!(Product, "select * from products")
+            .fetch_all(pool.0)
+            .await
+            .unwrap();
+
+        Ok(Json(products))
     }
 }
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    todo!()
+    let pool = PgPool::connect("postgres:ukis-dev").await?;
+    let api_service = OpenApiService::new(UkisApi, "Unnamed Kitchen Inventory System API", "0.0.1")
+        .server("http://localhost:9694");
+    let ui = api_service.openapi_explorer();
+    let route = Route::new()
+        .nest("/", api_service)
+        .nest("/ui", ui)
+        .data(pool);
+    Server::new(TcpListener::bind("127.0.0.1:9694"))
+        .run(route)
+        .await?;
+    Ok(())
 }
