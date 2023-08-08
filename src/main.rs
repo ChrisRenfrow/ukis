@@ -31,36 +31,55 @@ type GetAllProductsResponse = Result<Json<Vec<Product>>>;
 
 #[derive(Object)]
 struct Space {
+    /// The id of the space
+    #[oai(read_only)]
     id: i64,
+    /// The name of the space
     name: String,
-    description: String,
+    /// A description for the space
+    description: Option<String>,
 }
 
 type GetAllSpacesResponse = Result<Json<Vec<Space>>>;
 
 #[derive(Object)]
 struct Place {
+    /// The id of the place
+    #[oai(read_only)]
     id: i64,
+    /// The name of the place
     name: String,
-    description: String,
+    /// A description for the place
+    description: Option<String>,
 }
 
 type GetAllPlacesResponse = Result<Json<Vec<Place>>>;
 
 #[derive(Object)]
 struct Unit {
+    /// The id of the unit
+    #[oai(read_only)]
     id: i64,
+    /// The singular form of the unit
+    /// **e.g.** gram
     singular: String,
-    plural: String,
+    /// The plural form of the unit (if applicable)
+    /// **e.g.** grams
+    plural: Option<String>,
 }
 
 type GetAllUnitsResponse = Result<Json<Vec<Unit>>>;
 
 #[derive(Object)]
 struct UnitConversion {
+    /// The id of the unit conversion
+    #[oai(read_only)]
     id: i64,
+    /// The id of the unit to convert from
     from_unit_id: i64,
+    /// The id of the unit to convert to
     to_unit_id: i64,
+    /// The factor from unit to unit
     factor: f32,
 }
 
@@ -92,13 +111,21 @@ impl UkisApi {
 
     #[oai(path = "/products", method = "post")]
     async fn new_product(&self, pool: Data<&PgPool>, product: Json<Product>) -> Result<Json<i32>> {
-        let record = sqlx::query!(r#"
+        let record = sqlx::query!(
+            r#"
 INSERT INTO products (name, description, parent_product_id, purchase_unit_id, stock_unit_id, purchase_to_stock_factor)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id"#, product.name, product.description, product.parent_product_id, product.purchase_unit_id, product.stock_unit_id, product.purchase_to_stock_factor)
-            .fetch_one(pool.0)
-            .await
-            .map_err(InternalServerError)?;
+RETURNING id"#,
+            product.name,
+            product.description,
+            product.parent_product_id,
+            product.purchase_unit_id,
+            product.stock_unit_id,
+            product.purchase_to_stock_factor
+        )
+        .fetch_one(pool.0)
+        .await
+        .map_err(InternalServerError)?;
 
         Ok(Json(record.id))
     }
