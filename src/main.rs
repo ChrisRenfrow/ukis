@@ -89,6 +89,8 @@ struct UkisApi;
 
 #[OpenApi]
 impl UkisApi {
+    // PRODUCTS
+    /// Fetch all products
     #[oai(path = "/products", method = "get")]
     async fn get_products(&self, pool: Data<&PgPool>) -> GetAllProductsResponse {
         let products = sqlx::query_as!(Product, "SELECT * FROM products")
@@ -99,6 +101,9 @@ impl UkisApi {
         Ok(Json(products))
     }
 
+    /// Fetch product by id
+    ///
+    /// Internal server error if not found.
     #[oai(path = "/products/:id", method = "get")]
     async fn get_product(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<Json<Product>> {
         let product = sqlx::query_as!(Product, "SELECT * FROM products WHERE id = $1", id.0)
@@ -109,6 +114,7 @@ impl UkisApi {
         Ok(Json(product))
     }
 
+    /// Create a new product
     #[oai(path = "/products", method = "post")]
     async fn new_product(&self, pool: Data<&PgPool>, product: Json<Product>) -> Result<Json<i32>> {
         let record = sqlx::query!(
@@ -129,6 +135,31 @@ RETURNING id"#,
 
         Ok(Json(record.id))
     }
+
+    // UNITS
+    /// Fetch all units
+    #[oai(path = "/units", method = "get")]
+    async fn get_units(&self, pool: Data<&PgPool>) -> GetAllUnitsResponse {
+        let units = sqlx::query_as!(Unit, "SELECT * FROM units")
+            .fetch_all(pool.0)
+            .await
+            .unwrap();
+
+        Ok(Json(units))
+    }
+
+    /// Fetch unit by id
+    #[oai(path = "/units/:id", method = "get")]
+    async fn get_unit(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<Json<Unit>> {
+        let unit = sqlx::query_as!(Unit, "SELECT * FROM units WHERE id = $1", id.0)
+            .fetch_one(pool.0)
+            .await
+            .map_err(InternalServerError)?;
+
+        Ok(Json(unit))
+    }
+
+    //
 }
 
 #[tokio::main]
