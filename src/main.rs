@@ -4,7 +4,10 @@ use poem::{
     web::{Data, Path},
     EndpointExt, Result, Route, Server,
 };
-use poem_openapi::{payload::Json, Object, OpenApi, OpenApiService};
+use poem_openapi::{
+    payload::{Json, PlainText},
+    ApiResponse, Object, OpenApi, OpenApiService,
+};
 use sqlx::PgPool;
 
 #[derive(Object)]
@@ -27,7 +30,14 @@ struct Product {
     purchase_to_stock_factor: f32,
 }
 
-type GetAllProductsResponse = Result<Json<Vec<Product>>>;
+#[derive(ApiResponse)]
+enum GetProductResponse {
+    #[oai(status = 200)]
+    Product(Json<Product>),
+    #[oai(status = 404)]
+    NotFound(PlainText<String>),
+}
+type GetAllProductsResponse = Json<Vec<Product>>;
 
 #[derive(Object)]
 struct Space {
@@ -40,7 +50,7 @@ struct Space {
     description: Option<String>,
 }
 
-type GetAllSpacesResponse = Result<Json<Vec<Space>>>;
+type GetAllSpacesResponse = Json<Vec<Space>>;
 
 #[derive(Object)]
 struct Place {
@@ -53,7 +63,7 @@ struct Place {
     description: Option<String>,
 }
 
-type GetAllPlacesResponse = Result<Json<Vec<Place>>>;
+type GetAllPlacesResponse = Json<Vec<Place>>;
 
 #[derive(Object)]
 struct Unit {
@@ -61,14 +71,21 @@ struct Unit {
     #[oai(read_only)]
     id: i64,
     /// The singular form of the unit
-    /// **e.g.** gram
+    /// (**e.g.** gram)
     singular: String,
-    /// The plural form of the unit (if applicable)
-    /// **e.g.** grams
+    /// The plural form of the unit, if applicable
+    /// (**e.g.** grams)
     plural: Option<String>,
 }
 
-type GetAllUnitsResponse = Result<Json<Vec<Unit>>>;
+#[derive(ApiResponse)]
+enum GetUnitResponse {
+    #[oai(status = 200)]
+    Unit(Json<Unit>),
+    #[oai(status = 404)]
+    NotFound(PlainText<String>),
+}
+type GetAllUnitsResponse = Json<Vec<Unit>>;
 
 #[derive(Object)]
 struct UnitConversion {
@@ -83,7 +100,7 @@ struct UnitConversion {
     factor: f32,
 }
 
-type GetAllUnitConversionsResponse = Result<Json<Vec<UnitConversion>>>;
+type GetAllUnitConversionsResponse = Json<Vec<UnitConversion>>;
 
 struct UkisApi;
 
@@ -92,7 +109,7 @@ impl UkisApi {
     // PRODUCTS
     /// Fetch all products
     #[oai(path = "/products", method = "get")]
-    async fn get_products(&self, pool: Data<&PgPool>) -> GetAllProductsResponse {
+    async fn get_products(&self, pool: Data<&PgPool>) -> Result<GetAllProductsResponse> {
         let products = sqlx::query_as!(Product, "SELECT * FROM products")
             .fetch_all(pool.0)
             .await
@@ -102,16 +119,20 @@ impl UkisApi {
     }
 
     /// Fetch product by id
-    ///
-    /// Internal server error if not found.
     #[oai(path = "/products/:id", method = "get")]
-    async fn get_product(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<Json<Product>> {
-        let product = sqlx::query_as!(Product, "SELECT * FROM products WHERE id = $1", id.0)
-            .fetch_one(pool.0)
-            .await
-            .map_err(InternalServerError)?;
+    async fn get_product(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetProductResponse> {
+        let result: Option<Product> =
+            sqlx::query_as!(Product, "SELECT * FROM products WHERE id = $1", id.0)
+                .fetch_optional(pool.0)
+                .await
+                .map_err(InternalServerError)?;
 
-        Ok(Json(product))
+        match result {
+            Some(product) => Ok(GetProductResponse::Product(Json(product))),
+            None => Ok(GetProductResponse::NotFound(PlainText(
+                format!("No product with id '{}' found.", id.0).to_string(),
+            ))),
+        }
     }
 
     /// Create a new product
@@ -139,7 +160,7 @@ RETURNING id"#,
     // UNITS
     /// Fetch all units
     #[oai(path = "/units", method = "get")]
-    async fn get_units(&self, pool: Data<&PgPool>) -> GetAllUnitsResponse {
+    async fn get_units(&self, pool: Data<&PgPool>) -> Result<GetAllUnitsResponse> {
         let units = sqlx::query_as!(Unit, "SELECT * FROM units")
             .fetch_all(pool.0)
             .await
@@ -150,16 +171,19 @@ RETURNING id"#,
 
     /// Fetch unit by id
     #[oai(path = "/units/:id", method = "get")]
-    async fn get_unit(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<Json<Unit>> {
-        let unit = sqlx::query_as!(Unit, "SELECT * FROM units WHERE id = $1", id.0)
-            .fetch_one(pool.0)
+    async fn get_unit(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetUnitResponse> {
+        let unit: Option<Unit> = sqlx::query_as!(Unit, "SELECT * FROM units WHERE id = $1", id.0)
+            .fetch_optional(pool.0)
             .await
             .map_err(InternalServerError)?;
 
-        Ok(Json(unit))
+        match unit {
+            Some(unit) => Ok(GetUnitResponse::Unit(Json(unit))),
+            None => Ok(GetUnitResponse::NotFound(PlainText(
+                format!("No unit with id '{}' found.", id.0).to_string(),
+            ))),
+        }
     }
-
-    //
 }
 
 #[tokio::main]
