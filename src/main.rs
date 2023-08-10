@@ -121,7 +121,7 @@ struct UkisApi;
 #[OpenApi]
 impl UkisApi {
     // PRODUCTS
-    /// Fetch all products
+    /// Products: Fetch all
     #[oai(path = "/products", method = "get")]
     async fn get_products(&self, pool: Data<&PgPool>) -> Result<GetAllProductsResponse> {
         let products = sqlx::query_as!(Product, "SELECT * FROM products")
@@ -132,7 +132,7 @@ impl UkisApi {
         Ok(Json(products))
     }
 
-    /// Fetch product by id
+    /// Products: Fetch by id
     #[oai(path = "/products/:id", method = "get")]
     async fn get_product(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetProductResponse> {
         let result: Option<Product> =
@@ -149,7 +149,7 @@ impl UkisApi {
         }
     }
 
-    /// Create a new product
+    /// Products: Create new
     #[oai(path = "/products", method = "post")]
     async fn new_product(&self, pool: Data<&PgPool>, product: Json<Product>) -> Result<Json<i32>> {
         let record = sqlx::query!(
@@ -172,7 +172,7 @@ RETURNING id"#,
     }
 
     // UNITS
-    /// Fetch all units
+    /// Units: Fetch all
     #[oai(path = "/units", method = "get")]
     async fn get_units(&self, pool: Data<&PgPool>) -> Result<GetAllUnitsResponse> {
         let units = sqlx::query_as!(Unit, "SELECT * FROM units")
@@ -183,7 +183,7 @@ RETURNING id"#,
         Ok(Json(units))
     }
 
-    /// Fetch unit by id
+    /// Units: Fetch by id
     #[oai(path = "/units/:id", method = "get")]
     async fn get_unit(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetUnitResponse> {
         let unit: Option<Unit> = sqlx::query_as!(Unit, "SELECT * FROM units WHERE id = $1", id.0)
@@ -199,7 +199,7 @@ RETURNING id"#,
         }
     }
 
-    /// Create new unit
+    /// Units: Create new
     #[oai(path = "/units", method = "post")]
     async fn new_unit(&self, pool: Data<&PgPool>, unit: Json<Unit>) -> Result<Json<i32>> {
         let record = sqlx::query!(
@@ -218,7 +218,7 @@ RETURNING id"#,
     }
 
     // PLACES
-    /// Fetch all places
+    /// Places: Fetch all
     #[oai(path = "/places", method = "get")]
     async fn get_places(&self, pool: Data<&PgPool>) -> Result<GetAllPlacesResponse> {
         let places = sqlx::query_as!(Place, "SELECT * FROM places")
@@ -229,7 +229,7 @@ RETURNING id"#,
         Ok(Json(places))
     }
 
-    /// Fetch place by id
+    /// Places: Fetch by id
     #[oai(path = "/places/:id", method = "get")]
     async fn get_place(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetPlaceResponse> {
         let result: Option<Place> =
@@ -246,7 +246,7 @@ RETURNING id"#,
         }
     }
 
-    /// Create new place
+    /// Places: Create new
     #[oai(path = "/place", method = "post")]
     async fn new_place(&self, pool: Data<&PgPool>, place: Json<Place>) -> Result<Json<i32>> {
         let record = sqlx::query!(
@@ -265,7 +265,7 @@ RETURNING id"#,
     }
 
     // SPACES
-    /// Fetch all spaces
+    /// Spaces: Fetch all
     #[oai(path = "/spaces", method = "get")]
     async fn get_spaces(&self, pool: Data<&PgPool>) -> Result<GetAllSpacesResponse> {
         let spaces = sqlx::query_as!(Space, "SELECT * FROM spaces")
@@ -276,7 +276,7 @@ RETURNING id"#,
         Ok(Json(spaces))
     }
 
-    /// Fetch space by id
+    /// Spaces: Fetch by id
     #[oai(path = "/spaces/:id", method = "get")]
     async fn get_space(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetSpaceResponse> {
         let result: Option<Space> =
@@ -293,7 +293,7 @@ RETURNING id"#,
         }
     }
 
-    /// Create new space
+    /// Spaces: Create new
     #[oai(path = "/space", method = "post")]
     async fn new_space(&self, pool: Data<&PgPool>, space: Json<Space>) -> Result<Json<i32>> {
         let record = sqlx::query!(
