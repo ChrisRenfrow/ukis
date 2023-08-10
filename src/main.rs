@@ -6,6 +6,7 @@ use poem::{
 };
 use poem_openapi::{
     payload::{Json, PlainText},
+    types::ToJSON,
     ApiResponse, Object, OpenApi, OpenApiService,
 };
 use sqlx::PgPool;
@@ -27,16 +28,9 @@ struct Product {
     stock_unit_id: Option<i32>,
     /// The factor of purchase unit to stock unit
     /// (**e.g.** 1 carton of eggs is equivalent to 12 eggs in stock, so the factor would be *12.0*)
-    purchase_to_stock_factor: f32,
+    purchase_to_stock_factor: Option<f32>,
 }
 
-#[derive(ApiResponse)]
-enum GetProductResponse {
-    #[oai(status = 200)]
-    Product(Json<Product>),
-    #[oai(status = 404)]
-    NotFound(PlainText<String>),
-}
 type GetAllProductsResponse = Json<Vec<Product>>;
 
 #[derive(Object)]
@@ -50,13 +44,6 @@ struct Space {
     description: Option<String>,
 }
 
-#[derive(ApiResponse)]
-enum GetSpaceResponse {
-    #[oai(status = 200)]
-    Space(Json<Space>),
-    #[oai(status = 404)]
-    NotFound(PlainText<String>),
-}
 type GetAllSpacesResponse = Json<Vec<Space>>;
 
 #[derive(Object)]
@@ -70,13 +57,6 @@ struct Place {
     description: Option<String>,
 }
 
-#[derive(ApiResponse)]
-enum GetPlaceResponse {
-    #[oai(status = 200)]
-    Place(Json<Place>),
-    #[oai(status = 404)]
-    NotFound(PlainText<String>),
-}
 type GetAllPlacesResponse = Json<Vec<Place>>;
 
 #[derive(Object)]
@@ -92,13 +72,6 @@ struct Unit {
     plural: Option<String>,
 }
 
-#[derive(ApiResponse)]
-enum GetUnitResponse {
-    #[oai(status = 200)]
-    Unit(Json<Unit>),
-    #[oai(status = 404)]
-    NotFound(PlainText<String>),
-}
 type GetAllUnitsResponse = Json<Vec<Unit>>;
 
 #[derive(Object)]
@@ -115,6 +88,14 @@ struct UnitConversion {
 }
 
 type GetAllUnitConversionsResponse = Json<Vec<UnitConversion>>;
+
+#[derive(ApiResponse)]
+enum GetResponse<T: std::marker::Send + ToJSON> {
+    #[oai(status = 200)]
+    Success(Json<T>),
+    #[oai(status = 404)]
+    NotFound(PlainText<String>),
+}
 
 #[derive(ApiResponse)]
 enum DeleteResponse {
@@ -142,7 +123,11 @@ impl UkisApi {
 
     /// Products: Fetch by id
     #[oai(path = "/products/:id", method = "get")]
-    async fn get_product(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetProductResponse> {
+    async fn get_product(
+        &self,
+        pool: Data<&PgPool>,
+        id: Path<i32>,
+    ) -> Result<GetResponse<Product>> {
         let result: Option<Product> =
             sqlx::query_as!(Product, "SELECT * FROM products WHERE id = $1", id.0)
                 .fetch_optional(pool.0)
@@ -150,8 +135,8 @@ impl UkisApi {
                 .map_err(InternalServerError)?;
 
         match result {
-            Some(product) => Ok(GetProductResponse::Product(Json(product))),
-            None => Ok(GetProductResponse::NotFound(PlainText(
+            Some(product) => Ok(GetResponse::Success(Json(product))),
+            None => Ok(GetResponse::NotFound(PlainText(
                 format!("No product with id '{}' found.", id.0).to_string(),
             ))),
         }
@@ -182,10 +167,16 @@ RETURNING id"#,
     /// Products: Delete with id
     #[oai(path = "/products/:id", method = "delete")]
     async fn delete_product(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<DeleteResponse> {
-        let result = sqlx::query!("DELETE FROM products WHERE id = $1 RETURNING id", id.0)
-            .fetch_optional(pool.0)
-            .await
-            .map_err(InternalServerError)?;
+        let result = sqlx::query!(
+            r#"
+DELETE FROM products
+WHERE id = $1
+RETURNING id"#,
+            id.0
+        )
+        .fetch_optional(pool.0)
+        .await
+        .map_err(InternalServerError)?;
 
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
@@ -209,15 +200,15 @@ RETURNING id"#,
 
     /// Units: Fetch by id
     #[oai(path = "/units/:id", method = "get")]
-    async fn get_unit(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetUnitResponse> {
+    async fn get_unit(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetResponse<Unit>> {
         let unit: Option<Unit> = sqlx::query_as!(Unit, "SELECT * FROM units WHERE id = $1", id.0)
             .fetch_optional(pool.0)
             .await
             .map_err(InternalServerError)?;
 
         match unit {
-            Some(unit) => Ok(GetUnitResponse::Unit(Json(unit))),
-            None => Ok(GetUnitResponse::NotFound(PlainText(
+            Some(unit) => Ok(GetResponse::Success(Json(unit))),
+            None => Ok(GetResponse::NotFound(PlainText(
                 format!("No unit with id '{}' found.", id.0).to_string(),
             ))),
         }
@@ -244,10 +235,16 @@ RETURNING id"#,
     /// Units: Delete with id
     #[oai(path = "/units/:id", method = "delete")]
     async fn delete_unit(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<DeleteResponse> {
-        let result = sqlx::query!("DELETE FROM units WHERE id = $1 RETURNING id", id.0)
-            .fetch_optional(pool.0)
-            .await
-            .map_err(InternalServerError)?;
+        let result = sqlx::query!(
+            r#"
+DELETE FROM units
+WHERE id = $1
+RETURNING id"#,
+            id.0
+        )
+        .fetch_optional(pool.0)
+        .await
+        .map_err(InternalServerError)?;
 
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
@@ -271,7 +268,7 @@ RETURNING id"#,
 
     /// Places: Fetch by id
     #[oai(path = "/places/:id", method = "get")]
-    async fn get_place(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetPlaceResponse> {
+    async fn get_place(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetResponse<Place>> {
         let result: Option<Place> =
             sqlx::query_as!(Place, "SELECT * FROM places WHERE id = $1", id.0)
                 .fetch_optional(pool.0)
@@ -279,8 +276,8 @@ RETURNING id"#,
                 .map_err(InternalServerError)?;
 
         match result {
-            Some(place) => Ok(GetPlaceResponse::Place(Json(place))),
-            None => Ok(GetPlaceResponse::NotFound(PlainText(
+            Some(place) => Ok(GetResponse::Success(Json(place))),
+            None => Ok(GetResponse::NotFound(PlainText(
                 format!("No place with id '{}' found.", id.0).to_string(),
             ))),
         }
@@ -307,10 +304,16 @@ RETURNING id"#,
     /// Places: Delete with id
     #[oai(path = "/places/:id", method = "delete")]
     async fn delete_place(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<DeleteResponse> {
-        let result = sqlx::query!("DELETE FROM places WHERE id = $1 RETURNING id", id.0)
-            .fetch_optional(pool.0)
-            .await
-            .map_err(InternalServerError)?;
+        let result = sqlx::query!(
+            r#"
+DELETE FROM places
+WHERE id = $1
+RETURNING id"#,
+            id.0
+        )
+        .fetch_optional(pool.0)
+        .await
+        .map_err(InternalServerError)?;
 
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
@@ -334,7 +337,7 @@ RETURNING id"#,
 
     /// Spaces: Fetch by id
     #[oai(path = "/spaces/:id", method = "get")]
-    async fn get_space(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetSpaceResponse> {
+    async fn get_space(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetResponse<Space>> {
         let result: Option<Space> =
             sqlx::query_as!(Space, "SELECT * FROM spaces WHERE id = $1", id.0)
                 .fetch_optional(pool.0)
@@ -342,8 +345,8 @@ RETURNING id"#,
                 .map_err(InternalServerError)?;
 
         match result {
-            Some(space) => Ok(GetSpaceResponse::Space(Json(space))),
-            None => Ok(GetSpaceResponse::NotFound(PlainText(
+            Some(space) => Ok(GetResponse::Success(Json(space))),
+            None => Ok(GetResponse::NotFound(PlainText(
                 format!("No space with id '{}' found.", id.0).to_string(),
             ))),
         }
@@ -370,10 +373,16 @@ RETURNING id"#,
     /// Spaces: Delete with id
     #[oai(path = "/spaces/:id", method = "delete")]
     async fn delete_space(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<DeleteResponse> {
-        let result = sqlx::query!("DELETE FROM places WHERE id = $1 RETURNING id", id.0)
-            .fetch_optional(pool.0)
-            .await
-            .map_err(InternalServerError)?;
+        let result = sqlx::query!(
+            r#"
+DELETE FROM places
+WHERE id = $1
+RETURNING id"#,
+            id.0
+        )
+        .fetch_optional(pool.0)
+        .await
+        .map_err(InternalServerError)?;
 
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
