@@ -184,6 +184,24 @@ RETURNING id"#,
             ))),
         }
     }
+
+    /// Create new unit
+    #[oai(path = "/units", method = "post")]
+    async fn new_unit(&self, pool: Data<&PgPool>, unit: Json<Unit>) -> Result<Json<i32>> {
+        let record = sqlx::query!(
+            r#"
+INSERT INTO units (singular, plural)
+VALUES ($1, $2)
+RETURNING id"#,
+            unit.singular,
+            unit.plural,
+        )
+        .fetch_one(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        Ok(Json(record.id))
+    }
 }
 
 #[tokio::main]
