@@ -50,6 +50,13 @@ struct Space {
     description: Option<String>,
 }
 
+#[derive(ApiResponse)]
+enum GetSpaceResponse {
+    #[oai(status = 200)]
+    Space(Json<Space>),
+    #[oai(status = 404)]
+    NotFound(PlainText<String>),
+}
 type GetAllSpacesResponse = Json<Vec<Space>>;
 
 #[derive(Object)]
@@ -63,6 +70,13 @@ struct Place {
     description: Option<String>,
 }
 
+#[derive(ApiResponse)]
+enum GetPlaceResponse {
+    #[oai(status = 200)]
+    Place(Json<Place>),
+    #[oai(status = 404)]
+    NotFound(PlainText<String>),
+}
 type GetAllPlacesResponse = Json<Vec<Place>>;
 
 #[derive(Object)]
@@ -195,6 +209,100 @@ VALUES ($1, $2)
 RETURNING id"#,
             unit.singular,
             unit.plural,
+        )
+        .fetch_one(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        Ok(Json(record.id))
+    }
+
+    // PLACES
+    /// Fetch all places
+    #[oai(path = "/places", method = "get")]
+    async fn get_places(&self, pool: Data<&PgPool>) -> Result<GetAllPlacesResponse> {
+        let places = sqlx::query_as!(Place, "SELECT * FROM places")
+            .fetch_all(pool.0)
+            .await
+            .map_err(InternalServerError)?;
+
+        Ok(Json(places))
+    }
+
+    /// Fetch place by id
+    #[oai(path = "/places/:id", method = "get")]
+    async fn get_place(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetPlaceResponse> {
+        let result: Option<Place> =
+            sqlx::query_as!(Place, "SELECT * FROM places WHERE id = $1", id.0)
+                .fetch_optional(pool.0)
+                .await
+                .map_err(InternalServerError)?;
+
+        match result {
+            Some(place) => Ok(GetPlaceResponse::Place(Json(place))),
+            None => Ok(GetPlaceResponse::NotFound(PlainText(
+                format!("No place with id '{}' found.", id.0).to_string(),
+            ))),
+        }
+    }
+
+    /// Create new place
+    #[oai(path = "/place", method = "post")]
+    async fn new_place(&self, pool: Data<&PgPool>, place: Json<Place>) -> Result<Json<i32>> {
+        let record = sqlx::query!(
+            r#"
+INSERT INTO places (name, description)
+VALUES ($1, $2)
+RETURNING id"#,
+            place.name,
+            place.description,
+        )
+        .fetch_one(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        Ok(Json(record.id))
+    }
+
+    // SPACES
+    /// Fetch all spaces
+    #[oai(path = "/spaces", method = "get")]
+    async fn get_spaces(&self, pool: Data<&PgPool>) -> Result<GetAllSpacesResponse> {
+        let spaces = sqlx::query_as!(Space, "SELECT * FROM spaces")
+            .fetch_all(pool.0)
+            .await
+            .map_err(InternalServerError)?;
+
+        Ok(Json(spaces))
+    }
+
+    /// Fetch space by id
+    #[oai(path = "/spaces/:id", method = "get")]
+    async fn get_space(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<GetSpaceResponse> {
+        let result: Option<Space> =
+            sqlx::query_as!(Space, "SELECT * FROM spaces WHERE id = $1", id.0)
+                .fetch_optional(pool.0)
+                .await
+                .map_err(InternalServerError)?;
+
+        match result {
+            Some(space) => Ok(GetSpaceResponse::Space(Json(space))),
+            None => Ok(GetSpaceResponse::NotFound(PlainText(
+                format!("No space with id '{}' found.", id.0).to_string(),
+            ))),
+        }
+    }
+
+    /// Create new space
+    #[oai(path = "/space", method = "post")]
+    async fn new_space(&self, pool: Data<&PgPool>, space: Json<Space>) -> Result<Json<i32>> {
+        let record = sqlx::query!(
+            r#"
+INSERT INTO spaces (name, description)
+VALUES ($1, $2)
+RETURNING id"#,
+            space.name,
+            space.description,
         )
         .fetch_one(pool.0)
         .await
