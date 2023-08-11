@@ -80,11 +80,11 @@ struct UnitConversion {
     #[oai(read_only)]
     id: i64,
     /// The id of the unit to convert from
-    from_unit_id: i64,
+    from_unit_id: i32,
     /// The id of the unit to convert to
-    to_unit_id: i64,
+    to_unit_id: i32,
     /// The factor from unit to unit
-    factor: f32,
+    factor: Option<f32>,
 }
 
 type GetAllUnitConversionsResponse = Json<Vec<UnitConversion>>;
@@ -250,6 +250,94 @@ RETURNING id"#,
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
             None => Ok(DeleteResponse::NotFound(PlainText(
                 format!("No unit with id '{}' found.", id.0).to_string(),
+            ))),
+        }
+    }
+
+    // UNIT CONVERSIONS
+    /// Unit Conversions: Fetch all
+    #[oai(path = "/unit_conversions", method = "get")]
+    async fn get_unit_conversions(
+        &self,
+        pool: Data<&PgPool>,
+    ) -> Result<GetAllUnitConversionsResponse> {
+        let unit_conversions = sqlx::query_as!(UnitConversion, "SELECT * FROM unit_conversions")
+            .fetch_all(pool.0)
+            .await
+            .unwrap();
+
+        Ok(Json(unit_conversions))
+    }
+
+    /// Unit Conversions: Fetch by id
+    #[oai(path = "/unit_conversions/:id", method = "get")]
+    async fn get_unit_conversion(
+        &self,
+        pool: Data<&PgPool>,
+        id: Path<i32>,
+    ) -> Result<GetResponse<UnitConversion>> {
+        let unit_conversion: Option<UnitConversion> = sqlx::query_as!(
+            UnitConversion,
+            "SELECT * FROM unit_conversions WHERE id = $1",
+            id.0
+        )
+        .fetch_optional(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        match unit_conversion {
+            Some(uc) => Ok(GetResponse::Success(Json(uc))),
+            None => Ok(GetResponse::NotFound(PlainText(
+                format!("No unit conversion with id '{}' found.", id.0).to_string(),
+            ))),
+        }
+    }
+
+    /// Unit Conversions: Create new
+    #[oai(path = "/unit_conversions", method = "post")]
+    async fn new_unit_conversion(
+        &self,
+        pool: Data<&PgPool>,
+        conversion: Json<UnitConversion>,
+    ) -> Result<Json<i32>> {
+        let record = sqlx::query!(
+            r#"
+INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor)
+VALUES ($1, $2, $3)
+RETURNING id"#,
+            conversion.from_unit_id,
+            conversion.to_unit_id,
+            conversion.factor,
+        )
+        .fetch_one(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        Ok(Json(record.id))
+    }
+
+    /// Units: Delete with id
+    #[oai(path = "/unit_conversions/:id", method = "delete")]
+    async fn delete_unit_conversion(
+        &self,
+        pool: Data<&PgPool>,
+        id: Path<i32>,
+    ) -> Result<DeleteResponse> {
+        let result = sqlx::query!(
+            r#"
+DELETE FROM unit_conversions
+WHERE id = $1
+RETURNING id"#,
+            id.0
+        )
+        .fetch_optional(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        match result {
+            Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
+            None => Ok(DeleteResponse::NotFound(PlainText(
+                format!("No unit conversion with id '{}' found.", id.0).to_string(),
             ))),
         }
     }
