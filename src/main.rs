@@ -31,8 +31,6 @@ struct Product {
     purchase_to_stock_factor: Option<f32>,
 }
 
-type GetAllProductsResponse = Json<Vec<Product>>;
-
 #[derive(Object)]
 struct Space {
     /// The id of the space
@@ -44,8 +42,6 @@ struct Space {
     description: Option<String>,
 }
 
-type GetAllSpacesResponse = Json<Vec<Space>>;
-
 #[derive(Object)]
 struct Place {
     /// The id of the place
@@ -56,8 +52,6 @@ struct Place {
     /// A description for the place
     description: Option<String>,
 }
-
-type GetAllPlacesResponse = Json<Vec<Place>>;
 
 #[derive(Object)]
 struct Unit {
@@ -72,8 +66,6 @@ struct Unit {
     plural: Option<String>,
 }
 
-type GetAllUnitsResponse = Json<Vec<Unit>>;
-
 #[derive(Object)]
 struct UnitConversion {
     /// The id of the unit conversion
@@ -87,7 +79,7 @@ struct UnitConversion {
     factor: Option<f32>,
 }
 
-type GetAllUnitConversionsResponse = Json<Vec<UnitConversion>>;
+type GetAllResponse<T> = Json<Vec<T>>;
 
 #[derive(ApiResponse)]
 enum GetResponse<T: std::marker::Send + ToJSON> {
@@ -112,7 +104,7 @@ impl UkisApi {
     // PRODUCTS
     /// Products: Fetch all
     #[oai(path = "/products", method = "get")]
-    async fn get_products(&self, pool: Data<&PgPool>) -> Result<GetAllProductsResponse> {
+    async fn get_products(&self, pool: Data<&PgPool>) -> Result<GetAllResponse<Product>> {
         let products = sqlx::query_as!(Product, "SELECT * FROM products")
             .fetch_all(pool.0)
             .await
@@ -189,7 +181,7 @@ RETURNING id"#,
     // UNITS
     /// Units: Fetch all
     #[oai(path = "/units", method = "get")]
-    async fn get_units(&self, pool: Data<&PgPool>) -> Result<GetAllUnitsResponse> {
+    async fn get_units(&self, pool: Data<&PgPool>) -> Result<GetAllResponse<Unit>> {
         let units = sqlx::query_as!(Unit, "SELECT * FROM units")
             .fetch_all(pool.0)
             .await
@@ -260,7 +252,7 @@ RETURNING id"#,
     async fn get_unit_conversions(
         &self,
         pool: Data<&PgPool>,
-    ) -> Result<GetAllUnitConversionsResponse> {
+    ) -> Result<GetAllResponse<UnitConversion>> {
         let unit_conversions = sqlx::query_as!(UnitConversion, "SELECT * FROM unit_conversions")
             .fetch_all(pool.0)
             .await
@@ -345,7 +337,7 @@ RETURNING id"#,
     // PLACES
     /// Places: Fetch all
     #[oai(path = "/places", method = "get")]
-    async fn get_places(&self, pool: Data<&PgPool>) -> Result<GetAllPlacesResponse> {
+    async fn get_places(&self, pool: Data<&PgPool>) -> Result<GetAllResponse<Place>> {
         let places = sqlx::query_as!(Place, "SELECT * FROM places")
             .fetch_all(pool.0)
             .await
@@ -414,7 +406,7 @@ RETURNING id"#,
     // SPACES
     /// Spaces: Fetch all
     #[oai(path = "/spaces", method = "get")]
-    async fn get_spaces(&self, pool: Data<&PgPool>) -> Result<GetAllSpacesResponse> {
+    async fn get_spaces(&self, pool: Data<&PgPool>) -> Result<GetAllResponse<Space>> {
         let spaces = sqlx::query_as!(Space, "SELECT * FROM spaces")
             .fetch_all(pool.0)
             .await
