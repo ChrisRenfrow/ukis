@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use poem::{
     error::InternalServerError,
     listener::TcpListener,
@@ -13,10 +13,7 @@ use poem_openapi::{
     ApiResponse, Object, OpenApi, OpenApiService,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{
-    types::time::{Date, Time},
-    PgPool,
-};
+use sqlx::PgPool;
 
 #[derive(Object)]
 struct Product {
