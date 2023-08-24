@@ -1,3 +1,6 @@
+use std::borrow::Cow;
+
+use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use poem::{
     error::InternalServerError,
     listener::TcpListener,
@@ -9,7 +12,11 @@ use poem_openapi::{
     types::ToJSON,
     ApiResponse, Object, OpenApi, OpenApiService,
 };
-use sqlx::PgPool;
+use serde::{Deserialize, Serialize};
+use sqlx::{
+    types::time::{Date, Time},
+    PgPool,
+};
 
 #[derive(Object)]
 struct Product {
@@ -77,6 +84,86 @@ struct UnitConversion {
     to_unit_id: i32,
     /// The factor from unit to unit
     factor: Option<f32>,
+}
+
+#[derive(Object)]
+struct StockItem {
+    #[oai(read_only)]
+    id: i64,
+    product_id: i32,
+    space_id: i32,
+    stock_quantity: f32,
+    best_by_date: Option<NaiveDate>,
+}
+
+#[derive(Object)]
+struct StockEntry {
+    #[oai(read_only)]
+    id: i64,
+    #[oai(read_only)]
+    entry_timestamp: NaiveDateTime,
+    entry_type: EntryType,
+    stock_quantity: f32,
+    stock_item_i32: Option<i32>,
+    product_id: Option<i32>,
+    place_id: Option<i32>,
+    to_space_id: Option<i32>,
+    price: Option<f32>,
+    memo: Option<String>,
+}
+
+#[derive(sqlx::Type, Serialize, Deserialize)]
+#[sqlx(type_name = "entry_type", rename_all = "lowercase")]
+enum EntryType {
+    Purchase,
+    Transfer,
+    Consume,
+    Expire,
+}
+
+impl poem_openapi::types::Type for EntryType {
+    const IS_REQUIRED: bool = true;
+
+    type RawValueType = Self;
+
+    type RawElementValueType = Self;
+
+    fn name() -> Cow<'static, str> {
+        "entry_type".into()
+    }
+
+    fn schema_ref() -> poem_openapi::registry::MetaSchemaRef {
+        poem_openapi::registry::MetaSchemaRef::Inline(Box::new(
+            poem_openapi::registry::MetaSchema::new_with_format("string", "trim"),
+        ))
+    }
+
+    fn as_raw_value(&self) -> Option<&Self::RawValueType> {
+        Some(self)
+    }
+
+    fn raw_element_iter<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = &'a Self::RawElementValueType> + 'a> {
+        Box::new(self.as_raw_value().into_iter())
+    }
+}
+
+impl poem_openapi::types::ToJSON for EntryType {
+    fn to_json(&self) -> Option<serde_json::Value> {
+        self.to_json()
+    }
+}
+
+impl poem_openapi::types::ParseFromJSON for EntryType {
+    fn parse_from_json(value: Option<serde_json::Value>) -> poem_openapi::types::ParseResult<Self> {
+        let value = value.unwrap_or_default();
+        if let serde_json::Value::String(value) = value {
+            Ok(serde_json::from_str(&value).unwrap())
+        } else {
+            Err(poem_openapi::types::ParseError::expected_type(value))
+        }
+    }
 }
 
 type GetAllResponse<T> = Json<Vec<T>>;
@@ -455,7 +542,7 @@ RETURNING id"#,
     async fn delete_space(&self, pool: Data<&PgPool>, id: Path<i32>) -> Result<DeleteResponse> {
         let result = sqlx::query!(
             r#"
-DELETE FROM places
+DELETE FROM spaces
 WHERE id = $1
 RETURNING id"#,
             id.0
@@ -468,6 +555,88 @@ RETURNING id"#,
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
             None => Ok(DeleteResponse::NotFound(PlainText(
                 format!("No space with id '{}' found.", id.0).to_string(),
+            ))),
+        }
+    }
+
+    // STOCK ITEMS
+    /// Stock Items: Fetch all
+    #[oai(path = "/stock_items", method = "get")]
+    async fn get_stock_items(&self, pool: Data<&PgPool>) -> Result<GetAllResponse<StockItem>> {
+        let spaces = sqlx::query_as!(StockItem, "SELECT * FROM stock_items")
+            .fetch_all(pool.0)
+            .await
+            .map_err(InternalServerError)?;
+
+        Ok(Json(spaces))
+    }
+
+    /// Stock Items: Fetch by id
+    #[oai(path = "/stock_items/:id", method = "get")]
+    async fn get_stock_item(
+        &self,
+        pool: Data<&PgPool>,
+        id: Path<i32>,
+    ) -> Result<GetResponse<StockItem>> {
+        let result: Option<StockItem> =
+            sqlx::query_as!(StockItem, "SELECT * FROM stock_items WHERE id = $1", id.0)
+                .fetch_optional(pool.0)
+                .await
+                .map_err(InternalServerError)?;
+
+        match result {
+            Some(item) => Ok(GetResponse::Success(Json(item))),
+            None => Ok(GetResponse::NotFound(PlainText(
+                format!("No stock item with id '{}' found.", id.0).to_string(),
+            ))),
+        }
+    }
+
+    /// Stock Items: Create new
+    #[oai(path = "/stock_item", method = "post")]
+    async fn new_stock_item(
+        &self,
+        pool: Data<&PgPool>,
+        item: Json<StockItem>,
+    ) -> Result<Json<i32>> {
+        let record = sqlx::query!(
+            r#"
+INSERT INTO stock_items (product_id, space_id, stock_quantity)
+VALUES ($1, $2, $3)
+RETURNING id"#,
+            item.product_id,
+            item.space_id,
+            item.stock_quantity,
+        )
+        .fetch_one(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        Ok(Json(record.id))
+    }
+
+    /// Stock Items: Delete with id
+    #[oai(path = "/stock_item/:id", method = "delete")]
+    async fn delete_stock_item(
+        &self,
+        pool: Data<&PgPool>,
+        id: Path<i32>,
+    ) -> Result<DeleteResponse> {
+        let result = sqlx::query!(
+            r#"
+DELETE FROM stock_items
+WHERE id = $1
+RETURNING id"#,
+            id.0
+        )
+        .fetch_optional(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        match result {
+            Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
+            None => Ok(DeleteResponse::NotFound(PlainText(
+                format!("No stock item with id '{}' found.", id.0).to_string(),
             ))),
         }
     }
