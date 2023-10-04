@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, env};
 
 use chrono::{NaiveDate, NaiveDateTime};
 use poem::{
@@ -641,16 +641,26 @@ RETURNING id"#,
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let pool = PgPool::connect("postgres:ukis-dev").await?;
+    let args: Vec<String> = env::args().collect();
+    let port: u32 = if args.len() > 1 {
+        args[1].parse().unwrap()
+    } else {
+        9694
+    };
+    let db_url = env::var("DATABASE_URL")
+        .expect("env variable `DATABASE_URL` should be set prior to execution");
+    let pool = PgPool::connect(&db_url).await?;
     let api_service = OpenApiService::new(UkisApi, "Unnamed Kitchen Inventory System API", "0.0.1")
-        .server("http://localhost:9694");
+        .server(format!("http://localhost:{port}"));
     let ui = api_service.openapi_explorer();
     let route = Route::new()
         .nest("/", api_service)
         .nest("/ui", ui)
         .data(pool);
-    Server::new(TcpListener::bind("127.0.0.1:9694"))
+
+    Server::new(TcpListener::bind(format!("localhost:{port}")))
         .run(route)
         .await?;
+
     Ok(())
 }
