@@ -213,7 +213,7 @@ impl UkisApi {
         match result {
             Some(product) => Ok(GetResponse::Success(Json(product))),
             None => Ok(GetResponse::NotFound(PlainText(
-                format!("No product with id '{}' found.", id.0).to_string(),
+                format!("No product with id '{}' found.", id.0),
             ))),
         }
     }
@@ -257,7 +257,7 @@ RETURNING id"#,
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
             None => Ok(DeleteResponse::NotFound(PlainText(
-                format!("No product with id '{}' found.", id.0).to_string(),
+                format!("No product with id '{}' found.", id.0),
             ))),
         }
     }
@@ -285,7 +285,7 @@ RETURNING id"#,
         match unit {
             Some(unit) => Ok(GetResponse::Success(Json(unit))),
             None => Ok(GetResponse::NotFound(PlainText(
-                format!("No unit with id '{}' found.", id.0).to_string(),
+                format!("No unit with id '{}' found.", id.0),
             ))),
         }
     }
@@ -325,7 +325,7 @@ RETURNING id"#,
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
             None => Ok(DeleteResponse::NotFound(PlainText(
-                format!("No unit with id '{}' found.", id.0).to_string(),
+                format!("No unit with id '{}' found.", id.0),
             ))),
         }
     }
@@ -364,7 +364,7 @@ RETURNING id"#,
         match unit_conversion {
             Some(uc) => Ok(GetResponse::Success(Json(uc))),
             None => Ok(GetResponse::NotFound(PlainText(
-                format!("No unit conversion with id '{}' found.", id.0).to_string(),
+                format!("No unit conversion with id '{}' found.", id.0),
             ))),
         }
     }
@@ -413,7 +413,7 @@ RETURNING id"#,
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
             None => Ok(DeleteResponse::NotFound(PlainText(
-                format!("No unit conversion with id '{}' found.", id.0).to_string(),
+                format!("No unit conversion with id '{}' found.", id.0),
             ))),
         }
     }
@@ -442,7 +442,7 @@ RETURNING id"#,
         match result {
             Some(place) => Ok(GetResponse::Success(Json(place))),
             None => Ok(GetResponse::NotFound(PlainText(
-                format!("No place with id '{}' found.", id.0).to_string(),
+                format!("No place with id '{}' found.", id.0),
             ))),
         }
     }
@@ -482,7 +482,7 @@ RETURNING id"#,
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
             None => Ok(DeleteResponse::NotFound(PlainText(
-                format!("No place with id '{}' found.", id.0).to_string(),
+                format!("No place with id '{}' found.", id.0),
             ))),
         }
     }
@@ -511,7 +511,7 @@ RETURNING id"#,
         match result {
             Some(space) => Ok(GetResponse::Success(Json(space))),
             None => Ok(GetResponse::NotFound(PlainText(
-                format!("No space with id '{}' found.", id.0).to_string(),
+                format!("No space with id '{}' found.", id.0),
             ))),
         }
     }
@@ -551,7 +551,7 @@ RETURNING id"#,
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
             None => Ok(DeleteResponse::NotFound(PlainText(
-                format!("No space with id '{}' found.", id.0).to_string(),
+                format!("No space with id '{}' found.", id.0),
             ))),
         }
     }
@@ -584,7 +584,7 @@ RETURNING id"#,
         match result {
             Some(item) => Ok(GetResponse::Success(Json(item))),
             None => Ok(GetResponse::NotFound(PlainText(
-                format!("No stock item with id '{}' found.", id.0).to_string(),
+                format!("No stock item with id '{}' found.", id.0),
             ))),
         }
     }
@@ -633,7 +633,7 @@ RETURNING id"#,
         match result {
             Some(_) => Ok(DeleteResponse::Success(Json(id.0))),
             None => Ok(DeleteResponse::NotFound(PlainText(
-                format!("No stock item with id '{}' found.", id.0).to_string(),
+                format!("No stock item with id '{}' found.", id.0),
             ))),
         }
     }
